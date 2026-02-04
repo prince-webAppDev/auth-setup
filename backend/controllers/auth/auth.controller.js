@@ -50,7 +50,7 @@ export const loginUser = async (req, res) => {
   const accessToken = generateAccessToken(user._id);
   const refreshToken = generateRefreshToken(user._id);
 
-  // hash refresh token before saving
+  // hash refresh token before saving in db
   const refreshTokenHash = crypto
     .createHash("sha256")
     .update(refreshToken)
