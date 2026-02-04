@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import api from "@/lib/api";
+import api from "../libs/api";
 
 export default function Signup() {
   const [form, setForm] = useState({ username: "", email: "", password: "" });
