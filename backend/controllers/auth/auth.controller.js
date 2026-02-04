@@ -16,7 +16,7 @@ export const logoutUser = async (req, res) => {
 
 }
 export const testUser = async (req, res) => {
-  res.send("logout User");
+  res.send("logout UzadADAer");
 
 }
 
