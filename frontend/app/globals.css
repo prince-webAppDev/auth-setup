@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+body {
+  @apply bg-dark text-white;
+}
+.input {
+  @apply w-full bg-dark border border-neon px-3 py-2 rounded text-white outline-none;
+}
+
+.btn {
+  @apply w-full bg-neon text-black font-semibold py-2 rounded;
+}
