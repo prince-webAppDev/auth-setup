@@ -4,79 +4,88 @@ import jwt from "jsonwebtoken"
 import crypto from "crypto"
 import RefreshToken from "../../models/refreshToken.model.js";
 import { generateAccessToken, generateRefreshToken } from "../../utils/genrateJwt.js";
+import Joi from "joi";
 
+
+const registerSchema = Joi.object({
+  username: Joi.string().min(3).max(30).required(),
+  email: Joi.string().email().required(),
+  password: Joi.string().min(8).required()
+});
 
 export const registerUser = async (req, res) => {
-  const {username , email , password }= req.body;
-  try {
+  const { error } = registerSchema.validate(req.body);
+  if (error) return res.status(400).json({ message: error.details[0].message });
 
-    if(!username || !email || !password){
-      return res.status(400).json({message : "All fields are required"});
+  try {
+    const { username, email, password } = req.body;
+    const userAlreadyExists = await User.findOne({ email });
+    if (userAlreadyExists) {
+      return res.status(400).json({ message: "User already exists. Please login." });
     }
-    const userAlredyExists = await User.findOne({email})
-    if(userAlredyExists){
-      return res.status(400).json({message : "User already exists Please login"});
-    }
-    const hashedPassword = await bcrypt.hash(password , 10);
+
+    const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = await User.create({
       username,
       email,
-      password : hashedPassword
+      password: hashedPassword
     });
+
     return res.status(201).json({
-      message : "User registered successfully",
-      user : {
-        id : newUser._id,
-        username : newUser.username,
-        email : newUser.email
+      message: "User registered successfully",
+      user: {
+        id: newUser._id,
+        username: newUser.username,
+        email: newUser.email
       }
-    })
-    
+    });
   } catch (error) {
-    return res.status(500).json({message : "Internal Server Error", error : error.message});
-    
+    return res.status(500).json({ message: "Internal Server Error", error: error.message });
   }
-}
+};
 
 export const loginUser = async (req, res) => {
-  const { username, password } = req.body;
+  try {
+    const { username, password } = req.body;
 
-  const user = await User.findOne({ username });
-  if (!user) return res.status(404).json({ message: "User not found" });
+    const user = await User.findOne({ username });
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-  const isMatch = await bcrypt.compare(password, user.password);
-  if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
 
-  const accessToken = generateAccessToken(user._id);
-  const refreshToken = generateRefreshToken(user._id);
+    const accessToken = generateAccessToken(user._id);
+    const refreshToken = generateRefreshToken(user._id);
 
-  // hash refresh token before saving
-  const refreshTokenHash = crypto
-    .createHash("sha256")
-    .update(refreshToken)
-    .digest("hex");
+    const refreshTokenHash = crypto
+      .createHash("sha256")
+      .update(refreshToken)
+      .digest("hex");
 
-  await RefreshToken.create({
-    user: user._id,
-    tokenHash: refreshTokenHash,
-    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-  });
+    await RefreshToken.create({
+      user: user._id,
+      tokenHash: refreshTokenHash,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    });
 
-  res.cookie("accessToken", accessToken, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "strict",
-    maxAge: 15 * 60 * 1000
-  });
+    res.cookie("accessToken", accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 15 * 60 * 1000
+    });
 
-  res.cookie("refreshToken", refreshToken, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "strict",
-    maxAge: 7 * 24 * 60 * 60 * 1000
-  });
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    });
 
-  res.json({ message: "Login successful" });
+    res.json({ message: "Login successful", refreshtoken: refreshToken });
+  } catch (error) {
+    res.status(500).json({ message: "Internal Server Error", error: error.message });
+  }
 };
 
 export const logoutUser = async (req, res) => {
